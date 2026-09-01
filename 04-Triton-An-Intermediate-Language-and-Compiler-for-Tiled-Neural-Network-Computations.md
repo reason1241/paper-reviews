@@ -1,0 +1,28 @@
+# Triton: An Intermediate Language and Compiler for Tiled Neural Network Computations
+
+Date: 2026-09-01
+
+- [Link](https://www.eecs.harvard.edu/~htk/publication/2019-mapl-tillet-kung-cox.pdf)
+
+- Problem: For deep learning, vendor libraries such as cuBLAS and cuDNN support only a restricted set of tensor operations. Operations that cannot leverage these libraries may suffer from poor device utilization unless custom implementations are written by experts, often at the expense of portability.
+- Solution: 
+  - The authors developed new programming abstractions for specifying custom deep learning workloads. They present Triton, an open-source language and compiler centered around tile-level operations for specifying and compiling tensor programs into efficient  GPU code. 
+- Claimed technical contributions:
+  - Triton consists of Triton-C, a C-like language that provides an interface for existing DNN transcompilers and CUDA programmers; Triton-IR, an LLVM-based IR for tile-level program analysis, transformation, and optimization; and Triton-JIT, a compiler and code-generation backend for compiling Triton-IR into LLVM bitcode.
+  - Triton-C: Tile declarations (e.g. `tile[16, 16]` syntax), built-in functions, broadcasting using `newaxis`, the `@` prefix for predication are added. Triton uses an SPMD programming model in which each kernel is logically single-threaded but automatically parallelized, making kernels simpler than CUDA kernels because programmers do not explicitly manage threads or synchronization.
+  - Triton-IR: Modules are compiled independently and aggregated by a linker. Triton-IR extends LLVM-IR with tile-level data-flow and control-flow support. This includes retiling operations (e.g. `reshape`, `broadcast`), specialized arithmetic instructions(e.g. transpositions `trans`, and matrix multiplication `dot`), and tile-level control flow (e.g. `cmpp` and `psi`).
+  - Triton-JIT compiler: This compiles Triton-IR using machine-independent and machine-dependent optimization passes backed by an auto-tuning engine. Machine-independent passes include data pre-fetching and tile-level peephole optimization. 
+    - Machine-dependent passes include hierarchical tiling (dividing tiles into micro and nano tiles), memory coalescing (ordering threads so nearby threads access nearby memory), shared memory allocation (determining when and where operands of high-arithmetic-intensity operations such as `dot` should be stored in fast shared memory), shared memory synchronization (inserting barriers when read-after-write (RAW) or write-after-read (WAR) hazards are detected).
+    - Auto-tuner: Triton-JIT extracts optimization spaces from Triton-IR using meta-parameters associated with optimization passes. In this paper, only hierarchical tiling parameters (tile, micro-tile, and nano-tile sizes) are auto-tuned using exhaustive search.
+- Metrics / Baselines:
+  - They compared Triton against vendor libraries (cuBLAS 10.0 and cuDNN 7.0) and compiler technologies (Auto-TVM, Tensor Comprehensions, and PlaidML) on an NVIDIA GeForce GTX1070.
+  - For matrix multiplication, Triton and cuBLAS were generally on par and achieved more than 90% of the device's peak performance on certain tasks. cuBLAS remained faster on shallow Transformer workloads because its 3D algorithm provides additional parallelism when M and N are small. Other DSLs were generally 2–3× slower than Triton, except TVM, which was less than 2× slower for inputs whose shapes were multiples of 32.
+  - For convolutions, Triton re-implemented cuDNN's `IMPLICIT_GEMM` algorithm and outperformed cuDNN's IMPLICIT_GEMM implementation on the tested ResNet workloads. When faster specialized algorithms were unavailable, such as for DeepSpeech2, Triton and cuDNN were roughly on par. Triton also efficiently implemented fused shifted convolutions.
+- Key insight and enabling idea: 
+  - Using tiles as the central programming abstraction allows programmers to express tensor computations at a higher level than individual GPU threads while giving the compiler enough information to automatically perform low-level optimizations such as hierarchical tiling, memory coalescing, prefetching, and shared-memory management.
+- Novelty and impact: 
+  - The main novelty is introducing tile-level operations and optimizations directly into a traditional compiler pipeline, allowing Triton to automatically generate efficient GPU code without requiring programmers to manually specify low-level thread-level execution schedules.
+- Technical Qualities:
+  - Framing and assumptions: Existing vendor libraries provide highly optimized kernels but support only a restricted set of tensor operations, while existing DSL/compiler approaches can have lower performance or insufficient expressiveness for novel operations.
+  - Merits of the technical contributions: Triton provides a relatively high-level tile abstraction while automatically performing low-level GPU optimizations, and its generated implementations achieve performance comparable to hand-optimized vendor libraries for several evaluated workloads.
+  - Does the evaluation support claims and reveal limitations of the proposed approach?: It seems like it provides comparable performance to vendor libraries while offering a programmable and portable abstraction, which indicates that the evaluation supports their claims. However, cuBLAS still outperforms Triton on some workloads, such as shallow Transformer matrix multiplications. The evaluation is also limited to an NVIDIA GTX1070 and a relatively small set of workloads, and the paper's auto-tuning evaluation considers only hierarchical tiling parameters.
