@@ -14,5 +14,4 @@ Date: Date
   - Framing and assumptions:
   - Merits of the technical contributions:
   - Does the evaluation support claims and reveal limitations of the proposed approach?:
-- Advantages:
-- Weakness:
+- Criticism:
